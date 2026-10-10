@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Qur3a Pro</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="playpro.css">
+
+    <!-- Three.js for 3D Dice -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+
+<body>
+
+<div id="app" class="full-app">
+
+    <!-- ================= HOME PAGE ================= -->
+    <section id="homePage" class="page active">
+        <div class="home-container">
+            <div class="logo-section">
+                <h1 class="logo-title">Qur3a<span>Pro</span></h1>
+                <p class="logo-subtitle">Ass2ila, s7ab, w d7k bzaf... 🎲</p>
+                <div id="homeDiceCanvas" class="dice-3d-wrapper"></div>
+            </div>
+
+            <div class="home-forms">
+                <div class="form-card">
+                    <h3><span>👑</span> Saweb room jdid</h3>
+                    <div class="input-group">
+                        <input id="createHostName" type="text" placeholder="Smiytek (Admin)..." autocomplete="off">
+                        <input id="createPinInput" type="text" placeholder="Code d'la room (ex: 2442)..." autocomplete="off">
+                    </div>
+                    <button class="action-btn primary" onclick="confirmCreateRoom()">Saweb daba 🚀</button>
+                </div>
+
+                <div class="form-card">
+                    <h3><span>🔗</span> Dkhl l room</h3>
+                    <div class="input-group">
+                        <input id="joinRoomCodeInput" type="text" placeholder="Code d'la room..." autocomplete="off">
+                        <input id="joinPlayerName" type="text" placeholder="Smiytek..." autocomplete="off">
+                    </div>
+                    <button class="action-btn secondary" onclick="confirmJoinRoom()">Dkhl 🎮</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= GAME PAGE (L'3BA) ================= -->
+    <section id="gamePage" class="page">
+        <header class="app-header">
+            <button class="header-icon-btn" onclick="leaveRoom()">‹</button>
+            <div class="header-center">
+                <h2>L'L3ba 🎲</h2>
+                <span id="roomNumber">Room #--</span>
+            </div>
+            <div class="header-placeholder"></div>
+        </header>
+
+        <!-- LOBBY & DRAW -->
+        <div id="lobbyStage" class="game-view">
+            <div id="gameDiceCanvas" class="dice-3d-main"></div>
+
+            <div class="draw-action-container">
+                <button id="btnStartDraw" class="draw-btn" onclick="startDraw()">
+                    🎲 Dir l'qor3a
+                </button>
+            </div>
+
+            <div class="players-preview-section">
+                <div class="section-header">
+                    <span>Les joueurs (<span id="playerCount">0</span>)</span>
+                    <button class="link-btn" onclick="openPlayersModal()">Voir tout 👁️</button>
+                </div>
+                <div id="miniPlayersList" class="mini-players-grid"></div>
+            </div>
+        </div>
+
+        <!-- QUESTION & INLINE ANSWER -->
+        <div id="questionStage" class="game-view hidden">
+            <div class="chosen-user-banner">
+                <div class="user-avatar-circle" id="chosenAvatar">?</div>
+                <h3 id="chosenPlayerText">-- jat fik l'qor3a! 🎉</h3>
+            </div>
+
+            <div class="question-display-card">
+                <span class="card-label">SOU2AL</span>
+                <p id="questionText">...</p>
+            </div>
+
+            <div class="timer-badge">
+                <span>⏱</span>
+                <strong id="timer">01:00</strong>
+            </div>
+
+            <div class="inline-answer-box">
+                <input id="answerInput" type="text" placeholder="Kteb l'jawāb dyalek hna..." autocomplete="off">
+                <div class="answer-actions">
+                    <button id="btnAnswerYes" class="action-btn success" onclick="submitAnswer()">💎 Jawebt</button>
+                    <button id="btnAnswerNo" class="action-btn danger" onclick="cantAnswer()">🔥 Ma 9dash njaweb</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- JUDGE & PROOF -->
+        <div id="judgeStage" class="game-view hidden">
+            <div class="judge-header">
+                <span>⚖️</span>
+                <h2>Espace du Juge</h2>
+            </div>
+
+            <div class="inline-add-input">
+                <input id="judgementInput" type="text" placeholder="Écris ton jugement..." autocomplete="off">
+                <button onclick="addJudgement()">+ Ajouter</button>
+            </div>
+
+            <div class="voting-section">
+                <h3>Les options de vote</h3>
+                <div id="voteOptionsList">
+                    <button class="vote-card" onclick="vote('requestion')">
+                        <span>🔄 Refaire la question</span>
+                        <b id="pct_requestion">0%</b>
+                    </button>
+                    <button class="vote-card" onclick="vote('retirage')">
+                        <span>🎲 Refaire le tirage</span>
+                        <b id="pct_retirage">0%</b>
+                    </button>
+                    <button class="vote-card" onclick="vote('pass')">
+                        <span>⏩ Passer le tour</span>
+                        <b id="pct_pass">0%</b>
+                    </button>
+                </div>
+            </div>
+
+            <div id="proofSubmissionSection" class="proof-section hidden">
+                <h3>إثبات تنفيذ الحكم 📜</h3>
+                <p id="winningJudgeText" class="winning-judge-title">--</p>
+                
+                <div class="inline-proof-box">
+                    <input id="proofTextInput" type="text" placeholder="Kteb Shno drti aw la9ata d'l'7okm..." autocomplete="off">
+                    <button class="action-btn primary" onclick="submitProof()">Send Proof 📤</button>
+                </div>
+
+                <div id="proofDisplayCard" class="proof-card hidden">
+                    <p id="proofContentText">...</p>
+                    <div class="heart-approval-bar">
+                        <button id="heartVoteBtn" class="heart-btn" onclick="toggleHeartVote()">
+                            ❤️ <span id="heartCount">0</span>
+                        </button>
+                        <span id="heartStatusText" class="heart-status">في انتظار موافقة الأغلبية...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= CHAT PAGE ================= -->
+    <section id="chatPage" class="page">
+        <header class="app-header">
+            <div class="chat-header-info">
+                <h2 id="chatHeaderCode">Room #--</h2>
+                <span id="chatPlayersCount" class="online-indicator">0 حاضين f l'room</span>
+            </div>
+        </header>
+
+        <div id="messagesContainer" class="messages-feed"></div>
+
+        <div class="chat-bottom-bar">
+            <label for="imageUploadInput" class="media-btn">📷</label>
+            <input type="file" id="imageUploadInput" accept="image/*" class="hidden-file-input" onchange="sendImageMessage(event)">
+
+            <button id="audioRecordBtn" class="media-btn" onclick="toggleAudioRecord()">🎤</button>
+
+            <input id="messageTextInput" type="text" placeholder="Votre message..." autocomplete="off" onkeydown="handleChatKeyDown(event)">
+            <button class="send-btn" onclick="sendTextMessage()">➤</button>
+        </div>
+    </section>
+
+    <!-- ================= PROFILE PAGE ================= -->
+    <section id="profilePage" class="page">
+        <header class="app-header">
+            <h2>Profil</h2>
+        </header>
+
+        <div class="profile-header-card">
+            <div class="profile-avatar-wrapper">
+                <img id="profileImage" src="" alt="Avatar" class="profile-img hidden">
+                <div id="profileAvatarLetter" class="profile-avatar-fallback">U</div>
+                <label for="profileImageInput" class="avatar-edit-badge">📷</label>
+                <input type="file" id="profileImageInput" accept="image/*" class="hidden-file-input" onchange="updateProfilePicture(event)">
+            </div>
+
+            <h2 id="profileDisplayName">User</h2>
+            <p id="profileUsername">@user</p>
+            <span id="profileBadgeRole" class="role-badge">👤 Joueur</span>
+        </div>
+
+        <div class="profile-block">
+            <div class="block-title">
+                <h3>📝 Ass2ila dyali</h3>
+                <button class="link-btn" onclick="openInlineAddQuestion()">＋ Zid sou2al</button>
+            </div>
+            
+            <div id="inlineQuestionForm" class="inline-add-box hidden">
+                <input id="myNewQuestionInput" type="text" placeholder="Kteb sou2al dyalek..." autocomplete="off">
+                <button onclick="saveMyQuestion()">Hfed</button>
+            </div>
+
+            <div id="myQuestionsList" class="questions-list"></div>
+        </div>
+
+        <button id="adminPanelBtn" class="admin-access-btn hidden" onclick="openAdminPage()">
+            👑 Panel d'L'Admin
+        </button>
+    </section>
+
+    <!-- ================= ADMIN PAGE ================= -->
+    <section id="adminPage" class="page">
+        <header class="app-header">
+            <button class="header-icon-btn" onclick="showPage('profilePage')">‹</button>
+            <h2>Panel Admin 👑</h2>
+            <div class="header-placeholder"></div>
+        </header>
+
+        <div class="admin-tabs-nav">
+            <button id="tabQuestionsBtn" class="tab-btn active" onclick="switchAdminTab('questions')">📝 Ass2ila</button>
+            <button id="tabPlayersBtn" class="tab-btn" onclick="switchAdminTab('players')">👥 La3aba</button>
+        </div>
+
+        <div id="adminQuestionsSection" class="admin-tab-content">
+            <div id="allQuestionsContainer" class="admin-list"></div>
+        </div>
+
+        <div id="adminPlayersSection" class="admin-tab-content hidden">
+            <div id="allPlayersContainer" class="admin-list"></div>
+        </div>
+    </section>
+
+    <!-- ================= BOTTOM NAVIGATION ================= -->
+    <nav id="bottomNav" class="bottom-nav">
+        <button class="nav-item active" onclick="showPage('gamePage')">
+            <span class="nav-icon">🎲</span>
+            <small>L'L3ba</small>
+        </button>
+
+        <button class="nav-item" onclick="showPage('chatPage')">
+            <span class="nav-icon">💬</span>
+            <small>Chat</small>
+        </button>
+
+        <button class="nav-item" onclick="showPage('profilePage')">
+            <span class="nav-icon">👤</span>
+            <small>Profil</small>
+        </button>
+    </nav>
+
+    <!-- ================= PLAYERS MODAL ================= -->
+    <div id="playersModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Tous les joueurs 👥</h3>
+                <button class="close-btn" onclick="closePlayersModal()">×</button>
+            </div>
+            <div id="allPlayersModalList" class="modal-players-list"></div>
+        </div>
+    </div>
+
+</div>
+
+<script src="playpro.js"></script>
+</body>
+</html>
